@@ -1,0 +1,100 @@
+---
+title: "PML"
+author: "Vishnu Sumanth"
+date: "25/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# OVERVIEW
+Dataset consistes of 5 classes A,B,C,D,E where they represent the way they lifted the barbell one being the correct and reamining four are wrong.training sample contains 19,622 samples of 6 participents and test sample contains 20 samples. i will be using random forest model to predict because it is good at finding coorelation between attributes.
+```{r ,echo=TRUE}
+library(caret)
+library(randomForest)
+```
+
+# LOADINGDATASET
+Dataset contains lot of NA, and invalid values.these values should be mitigated as they hold no significance.Same goes for test data . datasets are loaded using read.csv function
+```{r ,echo=TRUE,eval=TRUE}
+
+training <- read.csv('C:/Users/Vishn/Desktop/project ds/data/pml-training.csv', na.strings=c("NA","#DIV/0!",""))
+
+testing <- read.csv('C:/Users/Vishn/Desktop/project ds/data/pml-testing.csv', na.strings=c("NA","#DIV/0!",""))
+```
+
+Dataset not only consistes of five classes A,B,C,D,E but also two other clases timestamp and window. these two columns contribute nothing to the model as they hold no correlation with other classes.these columns will be removed later
+```{r ,echo=TRUE}
+head(training,1)
+```
+# CLEANING DATASET
+We are still left with values that do not contribute to the model . those are near zero values. these shloud be removed aswell
+
+```{r ,echo=TRUE,eval=TRUE}
+training <- training[, colSums(is.na(training)) == 0] 
+testing <- testing[, colSums(is.na(testing)) == 0] 
+```
+
+As metioned before there are two columsn that are not related to the outcome and other clases so these columns are being removed in both train and test data
+
+```{r ,echo=TRUE,eval=TRUE}
+classe <- training$classe
+traintmp <- grepl("^X|timestamp|window", names(training))
+training <- training[, !traintmp]
+trainFinal <- training[, sapply(training, is.numeric)]
+trainFinal$classe <- classe
+testtmp <- grepl("^X|timestamp|window", names(testing))
+testing <- testing[, !testtmp]
+testFinal <- testing[, sapply(testing, is.numeric)]
+```
+
+# SPLITING DATA
+original test data is kept aside as validation data.remaining train data is split into 7:3 ratio as in 70% training and 30% teting this is done by using CreatDataPartition method
+
+
+```{r ,echo=TRUE,eval=TRUE}
+Split <- createDataPartition(trainFinal$classe, p=0.70, list=FALSE)
+trainData <- trainFinal[Split, ]
+testData <- trainFinal[-Split, ]
+
+```
+
+
+# TRAINING
+once we have clean data we feed it to the model which we finalised.Here I choose random forest model as it is best for dataset with multiple attributes having correlation. This decision is also taken after some trail and error . once the model is trained we save it , this prevents training model multiple times 
+```{r ,echo=TRUE,eval=TRUE}
+model <- "model.RData"
+
+if (!file.exists(model)){
+fit <- train(classe ~ ., data=trainData, method="rf", trControl=trainControl(method="cv", 5), ntree=250)
+save(fit, file = "model.RData")
+}else{
+  load(file = "model.RData",verbose = TRUE)
+}
+
+```
+# checking accuracy with test data partitioned from train data
+Model accuracy is around 99.8% so there wont be any need of boosting and bagging
+
+```{r ,echo=TRUE,eval=TRUE}
+predictTest <- predict(fit, testData)
+confusionMatrix(testData$classe, predictTest)
+```
+# checking accuracy with original data
+
+```{r ,echo=TRUE,eval=TRUE}
+predictTest2 <- predict(fit, testFinal[,-length(names(testFinal))])
+#tablef = table(factor(predictTest2, levels=min(testFinal):max(testFinal)), factor(testFinal, levels=min(testFinal):max(testFinal)))
+#confusionMatrix(tablef)
+```
+
+# CONCLUSION 
+Model predicted all test data samples correctly scoring 20/20 . So the original test data accuracy is 100%
+```{r ,echo=TRUE,eval=TRUE}
+
+predictTest2
+```
+
+
